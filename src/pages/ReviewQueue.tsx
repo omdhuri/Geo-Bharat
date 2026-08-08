@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { GeoFeature, Conflict, Change, ProjectStats } from '../types';
 import { ShieldAlert, Check, X, Search, ChevronRight, Activity, Map as MapIcon, ArrowRight } from 'lucide-react';
 import { cn, getConfidenceColor } from '../utils';
@@ -11,7 +11,7 @@ export default function ReviewQueue({
 }: {
   conflicts: Conflict[],
   changes: Change[],
-  onNavigateToConflict: (c: Conflict) => void,
+  onNavigateToConflict: (c: Conflict, action?: 'view' | 'edit') => void,
   onResolveConflict: (id: string, status: 'resolved') => void
 }) {
   const [filter, setFilter] = useState<'all' | 'high' | 'boundary' | 'buffer'>('all');
@@ -45,7 +45,7 @@ export default function ReviewQueue({
         </div>
       </div>
 
-      <div className="flex-1 bg-white border border-stone-200 md:rounded-xl overflow-hidden flex flex-col shadow-xl -mx-4 md:mx-0">
+      <div className="flex-1 bg-white border-y md:border border-stone-200 md:rounded-xl overflow-hidden flex flex-col md:shadow-xl -mx-4 md:mx-0">
         {/* Table Header (Desktop) */}
         <div className="hidden md:grid grid-cols-12 gap-4 p-4 border-b border-stone-200 bg-stone-100/30 text-xs font-bold uppercase tracking-wider text-stone-600">
           <div className="col-span-2">Conflict ID</div>
@@ -57,7 +57,7 @@ export default function ReviewQueue({
         </div>
         
         {/* Table Body */}
-        <div className="flex-1 overflow-y-auto p-2 md:p-2 space-y-2 md:space-y-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="flex-1 overflow-y-auto p-0 md:p-2 space-y-0 md:space-y-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {filteredConflicts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-stone-600 py-12">
               <ShieldAlert className="w-10 h-10 md:w-12 md:h-12 mb-4 opacity-20" />
@@ -65,7 +65,7 @@ export default function ReviewQueue({
             </div>
           ) : (
             filteredConflicts.map(conflict => (
-              <div key={conflict.id} className="flex flex-col md:grid md:grid-cols-12 gap-3 md:gap-4 p-3 md:p-3 items-start md:items-center bg-white hover:bg-stone-100/80 rounded-lg border border-stone-200 transition-colors group">
+              <div key={conflict.id} className="flex flex-col md:grid md:grid-cols-12 gap-3 md:gap-4 p-4 md:p-3 items-start md:items-center bg-white hover:bg-stone-50 md:rounded-lg border-b md:border border-stone-200 last:border-b-0 transition-colors group">
                 
                 {/* Mobile Header: ID & Severity */}
                 <div className="flex justify-between items-center w-full md:hidden mb-1">
@@ -85,7 +85,7 @@ export default function ReviewQueue({
                 </div>
                 
                 <div className="md:col-span-2 flex flex-wrap gap-1">
-                  <span className="md:hidden text-[10px] text-stone-600 uppercase font-semibold mr-1 self-center">Entities:</span>
+                  <span className="md:hidden text-[10px] text-stone-500 uppercase font-bold mr-1 self-center tracking-wider">Features:</span>
                   {conflict.affectedFeatureIds.map(id => (
                     <span key={id} className="text-[10px] font-mono bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded border border-stone-300">
                       {id}
@@ -125,7 +125,9 @@ export default function ReviewQueue({
                     >
                       <Check className="w-3 h-3" /> ACCEPT
                     </button>
-                    <button className="px-3 py-1.5 text-xs font-bold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded transition-colors flex items-center gap-1.5">
+                    <button 
+                      onClick={() => onNavigateToConflict(conflict, 'edit')}
+                      className="px-3 py-1.5 text-xs font-bold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded transition-colors flex items-center gap-1.5">
                       EDIT <ArrowRight className="w-3 h-3 hidden sm:block" />
                     </button>
                   </div>

@@ -26,3 +26,22 @@
     background: #94a3b8;
   }
 }
+
+
+
+
+.tracing-cursor,
+.tracing-cursor.leaflet-container,
+.tracing-cursor .leaflet-grab,
+.tracing-cursor .leaflet-interactive,
+.tracing-cursor .leaflet-dragging,
+.tracing-cursor * {
+  cursor: url('/pen.svg') 0 24, crosshair !important;
+}
+
+.vertex-marker, .vertex-marker * {
+  cursor: grab !important;
+}
+.vertex-marker:active, .vertex-marker:active * {
+  cursor: grabbing !important;
+}

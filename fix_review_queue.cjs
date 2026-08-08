@@ -1,17 +1,19 @@
 const fs = require('fs');
 let content = fs.readFileSync('src/pages/ReviewQueue.tsx', 'utf8');
 
-// 1. Remove scrollbar
-content = content.replace(
-  'className="flex-1 overflow-y-auto custom-scrollbar p-2 md:p-2 space-y-2 md:space-y-1"',
-  'className="flex-1 overflow-y-auto p-2 md:p-2 space-y-2 md:space-y-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"'
-);
+const targetProps = `  onNavigateToConflict: (c: Conflict) => void,`;
+const replacementProps = `  onNavigateToConflict: (c: Conflict, action?: 'view' | 'edit') => void,`;
+content = content.replace(targetProps, replacementProps);
 
-// 2. Make actions visible
-content = content.replace(
-  'md:border-t-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity"',
-  'md:border-t-0 transition-opacity"'
-);
+const targetBtn = `<button className="px-3 py-1.5 text-xs font-bold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded transition-colors flex items-center gap-1.5">
+                      EDIT <ArrowRight className="w-3 h-3 hidden sm:block" />
+                    </button>`;
+const replacementBtn = `<button 
+                      onClick={() => onNavigateToConflict(conflict, 'edit')}
+                      className="px-3 py-1.5 text-xs font-bold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded transition-colors flex items-center gap-1.5">
+                      EDIT <ArrowRight className="w-3 h-3 hidden sm:block" />
+                    </button>`;
+content = content.replace(targetBtn, replacementBtn);
 
 fs.writeFileSync('src/pages/ReviewQueue.tsx', content);
 console.log("Done");

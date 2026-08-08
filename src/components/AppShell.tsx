@@ -1,5 +1,5 @@
-import { ReactNode } from 'react';
-import { Layers, Map as MapIcon, ShieldAlert, CheckSquare, Activity, Settings, Bell, Search, Hexagon, User } from 'lucide-react';
+import React, { ReactNode } from 'react';
+import { Layers, Map as MapIcon, ShieldAlert, CheckSquare, Activity, Settings, Bell, Search, Hexagon, User, Plus } from 'lucide-react';
 import { cn } from '../utils';
 
 interface NavItemProps {
@@ -57,28 +57,40 @@ export default function AppShell({
   activeTab, 
   setActiveTab,
   pendingReviewsCount,
-  onSearch
+  onSearch,
+  onImportClick
 }: { 
   children: ReactNode, 
   activeTab: string, 
   setActiveTab: (t: string) => void,
   pendingReviewsCount: number,
-  onSearch?: (query: string) => void
+  onSearch?: (query: string) => void,
+  onImportClick?: () => void
 }) {
   return (
     <div className="flex h-[100dvh] w-full bg-stone-50 text-stone-900 overflow-hidden font-sans flex-col md:flex-row">
       
       {/* Left Sidebar (Desktop) */}
       <nav className="hidden md:flex w-16 h-full bg-white border-r border-stone-200 flex-col items-center py-4 z-50 shadow-xl shrink-0">
-        <div className="mb-8 text-emerald-600">
+        <div className="mb-6 text-emerald-600">
           <Hexagon className="w-8 h-8 fill-emerald-600/20 stroke-2" />
+        </div>
+        
+        {/* Primary Action / Import Button */}
+        <div className="w-full flex justify-center mb-4">
+          <button 
+            onClick={onImportClick}
+            className="w-10 h-10 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow shadow-emerald-600/20 transition-all active:scale-95 group"
+            title="Import Data / New Project"
+          >
+            <Plus className="w-5 h-5 transition-transform duration-300 group-hover:rotate-90" />
+          </button>
         </div>
         
         <div className="flex flex-col gap-2 flex-1 w-full">
           <NavItem icon={MapIcon} label="Map" active={activeTab === 'map'} onClick={() => setActiveTab('map')} />
           <NavItem icon={Layers} label="Layers" active={activeTab === 'layers'} onClick={() => setActiveTab(activeTab === 'layers' ? 'map' : 'layers')} />
-          <NavItem icon={ShieldAlert} label="Conflicts" active={activeTab === 'conflicts'} onClick={() => setActiveTab('conflicts')} badge={pendingReviewsCount > 0 ? pendingReviewsCount : undefined} />
-          <NavItem icon={CheckSquare} label="Review" active={activeTab === 'review'} onClick={() => setActiveTab('review')} />
+          <NavItem icon={CheckSquare} label="Review" active={activeTab === 'review'} onClick={() => setActiveTab('review')} badge={pendingReviewsCount > 0 ? pendingReviewsCount : undefined} />
           <NavItem icon={Activity} label="Changes" active={activeTab === 'changes'} onClick={() => setActiveTab('changes')} />
         </div>
 
@@ -133,11 +145,15 @@ export default function AppShell({
         </main>
         
         {/* Mobile Bottom Navigation */}
-        <nav className="md:hidden shrink-0 h-14 sm:h-16 bg-white border-t border-stone-200 flex justify-around items-center z-50">
+        <nav className="md:hidden shrink-0 h-14 sm:h-16 bg-white border-t border-stone-200 flex justify-around items-center z-50 px-1">
+          <div className="h-full flex items-center justify-center px-1">
+            <button onClick={onImportClick} className="w-10 h-10 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-emerald-600/20 active:scale-95 shrink-0 transition-transform">
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
           <MobileNavItem icon={MapIcon} label="Map" active={activeTab === 'map'} onClick={() => setActiveTab('map')} />
           <MobileNavItem icon={Layers} label="Layers" active={activeTab === 'layers'} onClick={() => setActiveTab(activeTab === 'layers' ? 'map' : 'layers')} />
-          <MobileNavItem icon={ShieldAlert} label="Conflicts" active={activeTab === 'conflicts'} onClick={() => setActiveTab('conflicts')} badge={pendingReviewsCount > 0 ? pendingReviewsCount : undefined} />
-          <MobileNavItem icon={CheckSquare} label="Review" active={activeTab === 'review'} onClick={() => setActiveTab('review')} />
+          <MobileNavItem icon={CheckSquare} label="Review" active={activeTab === 'review'} onClick={() => setActiveTab('review')} badge={pendingReviewsCount > 0 ? pendingReviewsCount : undefined} />
           <MobileNavItem icon={Activity} label="Changes" active={activeTab === 'changes'} onClick={() => setActiveTab('changes')} />
         </nav>
       </div>

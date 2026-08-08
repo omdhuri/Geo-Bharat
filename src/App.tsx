@@ -5,9 +5,11 @@
 
 import { useState, useEffect } from 'react';
 import AppShell from './components/AppShell';
+import ImportModal from './components/ImportModal';
 import MapWorkspace from './pages/MapWorkspace';
 import ReviewQueue from './pages/ReviewQueue';
 import ChangeDetection from './pages/ChangeDetection';
+import Settings from './pages/Settings';
 import { GeoFeature, Conflict, Change, ProjectStats } from './types';
 import { runAnalysis } from './services/aiService';
 
@@ -21,6 +23,9 @@ export default function App() {
   const [stats, setStats] = useState<ProjectStats | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number] | undefined>(undefined);
   const [searchMarker, setSearchMarker] = useState<{lat: number, lon: number, label: string} | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [initialConflictId, setInitialConflictId] = useState<string | null>(null);
+  const [initialAction, setInitialAction] = useState<'view' | 'edit' | null>(null);
 
   useEffect(() => {
     // Load initial demo state
@@ -47,9 +52,10 @@ export default function App() {
     }
   };
 
-  const handleNavigateToConflict = (c: Conflict) => {
+  const handleNavigateToConflict = (c: Conflict, action: 'view' | 'edit' = 'view') => {
+    setInitialConflictId(c.id);
+    setInitialAction(action);
     setActiveTab('map');
-    // In a real app we'd pass the selected conflict to the map workspace via state/context
   };
 
   const handleResolveConflict = (id: string, status: 'resolved') => {
@@ -69,6 +75,7 @@ export default function App() {
       setActiveTab={setActiveTab}
       pendingReviewsCount={conflicts.length}
       onSearch={handleSearch}
+      onImportClick={() => setShowImportModal(true)}
     >
       {(activeTab === 'map' || activeTab === 'layers') && (
         <MapWorkspace 
@@ -84,6 +91,12 @@ export default function App() {
           isLayersTabMobile={activeTab === 'layers'}
           mapCenter={mapCenter}
           searchMarker={searchMarker}
+          initialConflictId={initialConflictId}
+          initialAction={initialAction}
+          clearInitialConflict={() => {
+            setInitialConflictId(null);
+            setInitialAction(null);
+          }}
         />
       )}
       
@@ -101,17 +114,8 @@ export default function App() {
       )}
 
       {/* Placeholder for other tabs */}
-      {['conflicts', 'settings'].includes(activeTab) && (
-        <div className="w-full h-full flex flex-col items-center justify-center text-stone-600 bg-stone-50 p-8">
-           <div className="text-2xl font-bold text-stone-600 mb-2 capitalize">{activeTab} View</div>
-           <p className="max-w-md text-center text-sm">
-             This is a prototype demonstration. The core functionality is implemented in the 
-             <button onClick={()=>setActiveTab('map')} className="text-emerald-600 font-medium hover:underline mx-1">Map Workspace</button> 
-             and 
-             <button onClick={()=>setActiveTab('review')} className="text-emerald-600 font-medium hover:underline mx-1">Review Queue</button>.
-           </p>
-        </div>
-      )}
+            {activeTab === 'settings' && <Settings />}
+            {showImportModal && <ImportModal onClose={() => setShowImportModal(false)} />}
     </AppShell>
   );
 }

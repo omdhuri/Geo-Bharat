@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Polygon, Polyline, CircleMarker, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import { GeoFeature, Conflict, Change } from '../types';
-import { cn, formatArea, getConfidenceColor } from '../utils';
+import { GeoFeature, Conflict, Change } from '../../types';
+import { cn, formatArea, getConfidenceColor } from '../../utils';
 
 // Fix Leaflet's default icon path issues with webpack/vite
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -20,6 +20,14 @@ const conflictIcon = new L.Icon({
 });
 
 
+
+const vertexIcon = new L.DivIcon({
+  className: 'bg-transparent vertex-marker',
+  html: '<div style="width: 12px; height: 12px; background: white; border: 2px solid #ef4444; border-radius: 50%; box-shadow: 0 0 4px rgba(0,0,0,0.3); transform: translate(-6px, -6px);"></div>',
+  iconSize: [0, 0],
+  iconAnchor: [0, 0]
+});
+
 const CENTER = [17.6805, 74.0183] as [number, number];
 
 function MapController({ center, zoom }: { center: [number, number]; zoom: number }) {
@@ -31,13 +39,24 @@ function MapController({ center, zoom }: { center: [number, number]; zoom: numbe
 }
 
 
-function MapEvents({ onMapClick }: { onMapClick?: (latlng: [number, number]) => void }) {
+import { useRef } from 'react';
+function MapEvents({ onMapClick, onMouseMove }: { onMapClick?: (latlng: [number, number]) => void, onMouseMove?: (latlng: [number, number]) => void }) {
+  const onMapClickRef = useRef(onMapClick);
+  const onMouseMoveRef = useRef(onMouseMove);
+  useEffect(() => { onMapClickRef.current = onMapClick; }, [onMapClick]);
+  useEffect(() => { onMouseMoveRef.current = onMouseMove; }, [onMouseMove]);
+  
   useMapEvents({
     click(e) {
-      if (onMapClick) {
-        onMapClick([e.latlng.lat, e.latlng.lng]);
+      if (onMapClickRef.current) {
+        onMapClickRef.current([e.latlng.lat, e.latlng.lng]);
       }
     },
+    mousemove(e) {
+      if (onMouseMoveRef.current) {
+        onMouseMoveRef.current([e.latlng.lat, e.latlng.lng]);
+      }
+    }
   });
   return null;
 }
@@ -56,9 +75,12 @@ interface GISMapProps {
   isTracing?: boolean;
   tracingPoints?: [number, number][];
   onMapClick?: (latlng: [number, number]) => void;
+  onPointMove?: (index: number, latlng: [number, number]) => void;
+  onPointDelete?: (index: number) => void;
 }
 
 export default function GISMap({
+
   features,
   conflicts,
   changes,
@@ -71,8 +93,11 @@ export default function GISMap({
   searchMarker,
   isTracing,
   tracingPoints,
-  onMapClick
+  onMapClick,
+  onPointMove,
+  onPointDelete
 }: GISMapProps) {
+  const [cursorPos, setCursorPos] = React.useState<[number, number] | null>(null);
 
   const farms = features.filter(f => f.type === 'farm');
   const buildings = features.filter(f => f.type === 'building');
@@ -81,15 +106,21 @@ export default function GISMap({
   const water = features.filter(f => f.type === 'water');
 
   return (
-    <div className="w-full h-full relative bg-white">
+    <div className={`w-full h-full relative bg-white ${isTracing ? "tracing-cursor" : ""}`}>
       <MapContainer 
         center={CENTER} 
         zoom={16} 
         style={{ width: '100%', height: '100%', background: '#0f172a' }}
+        className={isTracing ? 'tracing-cursor' : ''}
         zoomControl={false}
       >
         <MapController center={mapCenter || CENTER} zoom={16} />
-        <MapEvents onMapClick={onMapClick} />
+        <MapEvents 
+          onMapClick={onMapClick} 
+          onMouseMove={(latlng) => {
+            if (isTracing) setCursorPos(latlng);
+          }} 
+        />
         
         {/* Esri World Imagery */}
         <TileLayer
@@ -206,10 +237,10 @@ export default function GISMap({
               {selectedConflictId !== conflict.id && (
                  <Polygon 
                     positions={[
-                      [conflict.geometry.coordinates[0]-0.0002, conflict.geometry.coordinates[1]-0.0002],
-                      [conflict.geometry.coordinates[0]+0.0002, conflict.geometry.coordinates[1]-0.0002],
-                      [conflict.geometry.coordinates[0]+0.0002, conflict.geometry.coordinates[1]+0.0002],
-                      [conflict.geometry.coordinates[0]-0.0002, conflict.geometry.coordinates[1]+0.0002]
+                      [(conflict.geometry.coordinates as [number, number])[0]-0.0002, (conflict.geometry.coordinates as [number, number])[1]-0.0002],
+                      [(conflict.geometry.coordinates as [number, number])[0]+0.0002, (conflict.geometry.coordinates as [number, number])[1]-0.0002],
+                      [(conflict.geometry.coordinates as [number, number])[0]+0.0002, (conflict.geometry.coordinates as [number, number])[1]+0.0002],
+                      [(conflict.geometry.coordinates as [number, number])[0]-0.0002, (conflict.geometry.coordinates as [number, number])[1]+0.0002]
                     ] as [number, number][]}
                     pathOptions={{ color: '#ef4444', fill: false, dashArray: '2, 4', weight: 1 }}
                  />
@@ -219,8 +250,31 @@ export default function GISMap({
         ))}
       
         {/* Tracing Points */}
+        {isTracing && cursorPos && tracingPoints && tracingPoints.length > 0 && (
+          <Polyline positions={[tracingPoints[tracingPoints.length - 1], cursorPos]} pathOptions={{ color: '#ef4444', weight: 2, dashArray: '5, 5', opacity: 0.5 }} />
+        )}
         {isTracing && tracingPoints && tracingPoints.map((pt, i) => (
-          <CircleMarker key={i} center={pt} radius={4} pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 1 }} />
+          <Marker 
+            key={i} 
+            position={pt} 
+            icon={vertexIcon}
+            draggable={true}
+            eventHandlers={{
+              drag: (e) => {
+                if (onPointMove) {
+                  const latLng = e.target.getLatLng();
+                  onPointMove(i, [latLng.lat, latLng.lng]);
+                }
+              },
+              contextmenu: (e) => {
+                L.DomEvent.stopPropagation(e.originalEvent);
+                if (onPointDelete) onPointDelete(i);
+              },
+              click: (e) => {
+                L.DomEvent.stopPropagation(e.originalEvent);
+              }
+            }} 
+          />
         ))}
         {isTracing && tracingPoints && tracingPoints.length > 1 && (
           <Polyline positions={tracingPoints} pathOptions={{ color: '#ef4444', weight: 2, dashArray: '5, 5' }} />

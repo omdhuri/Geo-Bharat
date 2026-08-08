@@ -1,8 +1,28 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Change, Position } from '../types';
-import { Activity, Clock, SlidersHorizontal, Map as MapIcon, ArrowRight, Check } from 'lucide-react';
+import { Activity, Clock, SlidersHorizontal, Map as MapIcon, ArrowRight, Check, Layout, Minimize } from 'lucide-react';
 import { cn, getConfidenceColor } from '../utils';
-import { MapContainer, TileLayer } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap } from 'react-leaflet';
+
+
+function MapResizer({ active }: { active: boolean }) {
+  const map = useMap();
+  React.useEffect(() => {
+    // Small delay to allow CSS transitions to complete
+    const timeout = setTimeout(() => {
+      map.invalidateSize();
+    }, 350);
+    
+    // Also attach to window resize
+    const onResize = () => map.invalidateSize();
+    window.addEventListener('resize', onResize);
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [map, active]);
+  return null;
+}
 
 export default function ChangeDetection({
   changes
@@ -11,6 +31,7 @@ export default function ChangeDetection({
 }) {
   const [sliderPosition, setSliderPosition] = useState(50);
   const [selectedChange, setSelectedChange] = useState<Change | null>(changes[0] || null);
+  const [showList, setShowList] = useState(true);
 
   const handleDrag = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     if (e.buttons !== 1) return;
@@ -46,7 +67,10 @@ export default function ChangeDetection({
     <div className="w-full h-full flex flex-col md:flex-row overflow-hidden bg-stone-50 animate-in fade-in duration-200">
       
       {/* Left Sidebar: Change List */}
-      <div className="w-full h-1/3 md:w-80 md:h-full border-b md:border-b-0 md:border-r border-stone-200 bg-white flex flex-col z-10 shadow-xl shrink-0">
+      <div className={cn(
+        "w-full md:w-80 border-b md:border-b-0 md:border-r border-stone-200 bg-white flex flex-col z-10 shadow-xl shrink-0 transition-all duration-300",
+        showList ? "h-1/3 md:h-full opacity-100" : "h-0 md:h-full md:w-0 opacity-0 overflow-hidden border-none md:border-none"
+      )}>
         <div className="p-3 md:p-4 border-b border-stone-200 shrink-0 bg-white/90 backdrop-blur z-20">
            <h2 className="text-base md:text-lg font-bold text-stone-900 flex items-center gap-2 mb-0.5 md:mb-1">
              <Activity className="w-4 h-4 md:w-5 md:h-5 text-emerald-600" />
@@ -55,7 +79,7 @@ export default function ChangeDetection({
            <p className="text-[10px] md:text-xs text-stone-600">Compare March 2024 vs March 2026</p>
         </div>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2">
+        <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] p-2 space-y-2">
            {changes.map(change => (
              <button
                key={change.id}
@@ -91,6 +115,18 @@ export default function ChangeDetection({
 
       {/* Main Workspace: Before/After Slider */}
       <div className="flex-1 relative flex flex-col h-2/3 md:h-full">
+         <div className="absolute top-2 right-2 md:top-4 md:right-4 z-50 pointer-events-auto">
+            <button 
+              onClick={() => setShowList(!showList)}
+              className={cn(
+                "bg-white/80 backdrop-blur-md border border-stone-300/50 w-10 h-10 md:w-12 md:h-12 rounded-lg shadow-lg text-stone-800 hover:text-stone-900 transition-all flex items-center justify-center shrink-0",
+                !showList && "bg-stone-100/90 border-emerald-600/50 text-emerald-600 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+              )}
+              title={showList ? "Hide Changes List" : "Show Changes List"}
+            >
+              {showList ? <Minimize className="w-4 h-4 md:w-5 md:h-5" /> : <Layout className="w-4 h-4 md:w-5 md:h-5" />}
+            </button>
+         </div>
          {/* Top Controls */}
          <div className="absolute top-2 md:top-4 left-2 right-2 md:left-4 md:right-4 z-50 flex justify-center pointer-events-none">
             <div className="bg-white/90 backdrop-blur-md border border-stone-300/50 rounded-full px-3 md:px-4 py-1.5 md:py-2 shadow-xl pointer-events-auto flex items-center gap-2 md:gap-4 text-xs md:text-sm font-medium">
@@ -130,6 +166,7 @@ export default function ChangeDetection({
                     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     attribution="Esri"
                   />
+                  <MapResizer active={showList} />
                </MapContainer>
             </div>
 
@@ -155,6 +192,7 @@ export default function ChangeDetection({
                     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     attribution="Esri"
                   />
+                  <MapResizer active={showList} />
                </MapContainer>
                
                {/* Highlight the change on the new map side */}
@@ -187,8 +225,8 @@ export default function ChangeDetection({
 
          {/* Bottom Context Panel for Selected Change */}
          {selectedChange && (
-            <div className="absolute bottom-4 left-4 right-4 md:bottom-6 md:left-1/2 md:-translate-x-1/2 z-50">
-               <div className="bg-white/95 backdrop-blur-md border border-stone-300 shadow-2xl rounded-xl p-3 md:p-4 w-full md:w-[500px] flex gap-4">
+            <div className="absolute bottom-4 left-0 right-0 md:bottom-6 z-50 flex justify-center px-4 pointer-events-none">
+               <div className="bg-white/95 backdrop-blur-md border border-stone-300 shadow-2xl rounded-xl p-3 md:p-4 w-full max-w-[500px] flex gap-4 pointer-events-auto mx-auto">
                   <div className="flex-1">
                      <h3 className="text-xs md:text-sm font-bold text-stone-900 mb-1">{selectedChange.description}</h3>
                      <p className="text-[10px] md:text-xs text-stone-600 mb-2 md:mb-3 hidden sm:block">Confidence score indicates high likelihood of structural change.</p>

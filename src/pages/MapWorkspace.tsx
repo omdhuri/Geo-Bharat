@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import GISMap from '../components/map/MapContainer';
 import { runAnalysis } from '../services/aiService';
 import { GeoFeature, Conflict, Change, ProjectStats, Position } from '../types';
-import { Layers, Play, CheckCircle2, AlertTriangle, Eye, EyeOff, Loader2, Maximize, Minimize, Check, X, ShieldAlert, ChevronRight, Activity, Download, Layout, PenTool } from 'lucide-react';
+import { Layers, Play, CheckCircle2, AlertTriangle, Eye, EyeOff, Loader2, Maximize, Minimize, Check, X, ShieldAlert, ChevronRight, Activity, Download, Layout, PenTool, Undo } from 'lucide-react';
 import { cn, formatArea, getConfidenceColor } from '../utils';
 
 export default function MapWorkspace({
@@ -17,16 +17,22 @@ export default function MapWorkspace({
   onOpenReview,
   isLayersTabMobile,
   mapCenter: initialMapCenter,
-  searchMarker
+  searchMarker,
+  initialConflictId,
+  initialAction,
+  clearInitialConflict
 }: {
+  initialConflictId?: string | null;
+  initialAction?: 'view' | 'edit' | null;
+  clearInitialConflict?: () => void;
   features: GeoFeature[],
-  setFeatures: (f: GeoFeature[]) => void,
+  setFeatures: React.Dispatch<React.SetStateAction<GeoFeature[]>>,
   conflicts: Conflict[],
-  setConflicts: (c: Conflict[]) => void,
+  setConflicts: React.Dispatch<React.SetStateAction<Conflict[]>>,
   changes: Change[],
-  setChanges: (c: Change[]) => void,
+  setChanges: React.Dispatch<React.SetStateAction<Change[]>>,
   stats: ProjectStats | null,
-  setStats: (s: ProjectStats) => void,
+  setStats: React.Dispatch<React.SetStateAction<ProjectStats | null>>,
   onOpenReview: () => void,
   isLayersTabMobile?: boolean,
   mapCenter?: [number, number],
@@ -34,30 +40,63 @@ export default function MapWorkspace({
 }) {
   
   const [isTracing, setIsTracing] = useState(false);
+  const isTracingRef = useRef(isTracing);
+  useEffect(() => { isTracingRef.current = isTracing; }, [isTracing]);
   const [tracingPoints, setTracingPoints] = useState<[number, number][]>([]);
+  const [drawType, setDrawType] = useState<GeoFeature['type']>('farm');
+  const [editingFeatureId, setEditingFeatureId] = useState<string | null>(null);
+
+
+  const handlePointMove = (index: number, latlng: [number, number]) => {
+    setTracingPoints(prev => {
+      const newPts = [...prev];
+      newPts[index] = latlng;
+      return newPts;
+    });
+  };
+  
+  const handlePointDelete = (index: number) => {
+    setTracingPoints(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleMapClick = (latlng: [number, number]) => {
-    if (isTracing) {
+    if (isTracingRef.current) {
       setTracingPoints(prev => [...prev, latlng]);
     }
   };
 
+  const undoTracing = () => {
+    setTracingPoints(prev => prev.slice(0, -1));
+  };
+
   const finishTracing = () => {
     if (tracingPoints.length >= 3) {
-      const newFeature: GeoFeature = {
-        id: `farm-${Date.now()}`,
-        type: 'farm',
-        geometry: {
-          type: 'Polygon',
-          coordinates: tracingPoints
-        },
-        properties: {
-          area: 1.5,
-          cropType: 'Unknown',
-          confidence: 100
-        }
-      };
-      setFeatures([...features, newFeature]);
+      if (editingFeatureId) {
+        setFeatures(features.map(f => f.id === editingFeatureId ? {
+          ...f,
+          type: drawType,
+          geometry: {
+            ...f.geometry,
+            type: 'Polygon',
+            coordinates: [tracingPoints]
+          }
+        } : f));
+        setEditingFeatureId(null);
+      } else {
+        const newFeature: GeoFeature = {
+          id: `feature-${Date.now()}`,
+          type: drawType,
+          geometry: {
+            type: 'Polygon',
+            coordinates: [tracingPoints]
+          },
+          confidence: 100,
+          status: 'accepted',
+          source: 'manual',
+          createdAt: new Date().toISOString()
+        };
+        setFeatures([...features, newFeature]);
+      }
       setTracingPoints([]);
       setIsTracing(false);
     } else {
@@ -68,6 +107,7 @@ export default function MapWorkspace({
   const cancelTracing = () => {
     setTracingPoints([]);
     setIsTracing(false);
+    setEditingFeatureId(null);
   };
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -92,6 +132,36 @@ export default function MapWorkspace({
       setMapCenter(initialMapCenter);
     }
   }, [initialMapCenter]);
+
+  useEffect(() => {
+    if (initialConflictId && conflicts.length > 0) {
+      const conflict = conflicts.find(c => c.id === initialConflictId);
+      if (conflict) {
+        setSelectedConflict(conflict);
+        if (conflict.geometry.type === 'Point') {
+          setMapCenter(conflict.geometry.coordinates as [number, number]);
+        } else {
+          setMapCenter(conflict.geometry.coordinates[0][0] as [number, number]);
+        }
+        
+        if (initialAction === 'edit') {
+          // Enter edit mode
+          const featureId = conflict.affectedFeatureIds[0];
+          const feature = features.find(f => f.id === featureId);
+          if (feature) {
+            setEditingFeatureId(feature.id);
+            setDrawType(feature.type);
+            if (feature.geometry.type === 'Polygon') {
+              setTracingPoints(feature.geometry.coordinates[0] as [number, number][]);
+            }
+            setIsTracing(true);
+            setSelectedConflict(null);
+          }
+        }
+      }
+      if (clearInitialConflict) clearInitialConflict();
+    }
+  }, [initialConflictId, initialAction, conflicts, features, clearInitialConflict]);
   const [showExport, setShowExport] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [showOverlays, setShowOverlays] = useState(true);
@@ -158,7 +228,7 @@ export default function MapWorkspace({
       {/* Map Background */}
       <div className="absolute inset-0 z-0">
         <GISMap 
-          features={features} 
+          features={features.filter(f => f.id !== editingFeatureId)} 
           conflicts={conflicts} 
           changes={changes}
           visibleLayers={visibleLayers}
@@ -171,6 +241,8 @@ export default function MapWorkspace({
           isTracing={isTracing}
           tracingPoints={tracingPoints}
           onMapClick={handleMapClick}
+          onPointMove={handlePointMove}
+          onPointDelete={handlePointDelete}
         />
       </div>
 
@@ -185,7 +257,7 @@ export default function MapWorkspace({
           "absolute top-2 left-2 md:top-4 md:left-4",
           "bg-white/80 backdrop-blur-md border border-stone-300/50 rounded-lg p-2 md:p-3 shadow-lg flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 md:gap-6 transition-all duration-300 lg:w-auto max-w-[calc(100vw-110px)] md:max-w-[75vw]",
           (!showOverlays || isLayersTabMobile) ? "pointer-events-none md:pointer-events-auto" : "pointer-events-auto",
-          !showOverlays && "opacity-0 -translate-y-4"
+          (!showOverlays || isTracing) && "opacity-0 -translate-y-4 pointer-events-none"
         )}>
           <div className="hidden sm:block">
             <h2 className="text-sm font-semibold text-stone-900 whitespace-nowrap">Satara District — Pilot Survey</h2>
@@ -250,6 +322,8 @@ export default function MapWorkspace({
                 } else {
                   setIsTracing(true);
                   setTracingPoints([]);
+                  setSelectedFeature(null);
+                  setSelectedConflict(null);
                 }
               }}
               className={cn(
@@ -280,7 +354,7 @@ export default function MapWorkspace({
 
       
       {/* Bottom Right Stats */}
-      {stats && showOverlays && !isLayersTabMobile && !selectedFeature && !selectedConflict && (
+      {stats && showOverlays && !isLayersTabMobile && !selectedFeature && !selectedConflict && !isTracing && (
         <div className="absolute bottom-4 right-4 md:bottom-6 md:right-6 z-10 flex flex-col gap-2 pointer-events-auto">
           <div className="bg-white/80 backdrop-blur-md border border-stone-300/50 rounded-lg px-2 py-1 md:px-3 md:py-2 shadow-lg flex items-center justify-between gap-1.5 md:gap-3 h-10 md:h-12">
             <div className="flex items-center gap-1.5 md:gap-2">
@@ -369,10 +443,64 @@ export default function MapWorkspace({
       )}
 
       
-      {isTracing && tracingPoints.length > 0 && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex gap-2">
-           <button onClick={cancelTracing} className="bg-white text-stone-900 px-4 py-2 rounded-full shadow-lg text-sm font-bold border border-stone-200 hover:bg-stone-50">Cancel</button>
-           <button onClick={finishTracing} className={cn("px-4 py-2 rounded-full shadow-lg text-sm font-bold text-white", tracingPoints.length >= 3 ? "bg-emerald-600 hover:bg-emerald-500" : "bg-emerald-600/50 cursor-not-allowed")}>Complete Polygon</button>
+      {isTracing && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
+           <div className="bg-white/90 backdrop-blur-md rounded-full shadow-xl border border-stone-200 p-1.5 flex gap-1 items-center">
+             <div className="relative flex items-center border-r border-stone-200">
+               <select 
+                 value={drawType} 
+                 onChange={e => setDrawType(e.target.value as any)}
+                 className="bg-transparent text-sm font-bold text-stone-700 outline-none pl-3 pr-7 py-1 cursor-pointer appearance-none relative z-10 w-full"
+               >
+                 <option value="farm">Farm</option>
+                 <option value="building">Building</option>
+                 <option value="road">Road</option>
+                 <option value="water">Water</option>
+                 <option value="tree">Tree</option>
+                 <option value="lulc">LULC</option>
+               </select>
+               <div className="absolute right-2 text-stone-500 pointer-events-none z-0">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+               </div>
+             </div>
+             
+             <div className="px-3 py-1 text-xs font-medium text-stone-500 border-r border-stone-200">
+               {tracingPoints.length} points
+             </div>
+             
+             <div className="text-[10px] text-stone-500 mr-2 whitespace-nowrap hidden sm:block">
+               Drag points to move. Right-click to remove.
+             </div>
+             <button 
+               onClick={undoTracing} 
+               disabled={tracingPoints.length === 0}
+               className="p-2 text-stone-600 hover:bg-stone-100 hover:text-stone-900 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+               title="Undo last point"
+             >
+               <Undo className="w-4 h-4" />
+             </button>
+             
+             <button 
+               onClick={cancelTracing} 
+               className="px-4 py-1.5 text-stone-600 font-medium hover:bg-stone-100 hover:text-stone-900 rounded-full transition-colors text-sm"
+             >
+               Cancel
+             </button>
+             
+             <button 
+               onClick={finishTracing} 
+               disabled={tracingPoints.length < 3}
+               className={cn("px-4 py-1.5 rounded-full text-sm font-bold text-white transition-all", tracingPoints.length >= 3 ? "bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-600/20" : "bg-emerald-600/50 cursor-not-allowed")}
+             >
+               Complete
+             </button>
+           </div>
+           
+           {tracingPoints.length < 3 && (
+             <div className="bg-stone-900/80 backdrop-blur text-white text-xs px-3 py-1.5 rounded-full">
+               Click on map to add {3 - tracingPoints.length} more {3 - tracingPoints.length === 1 ? 'point' : 'points'}
+             </div>
+           )}
         </div>
       )}
 
@@ -425,7 +553,7 @@ export default function MapWorkspace({
         isLayersTabMobile 
           ? "inset-0 p-4 pb-20 pointer-events-auto bg-stone-50/90 backdrop-blur md:bg-transparent md:backdrop-blur-none md:p-0 md:inset-auto md:top-28 md:left-4 md:max-h-[calc(100vh-9rem)] md:w-64 md:pointer-events-none" 
           : "hidden",
-        !showOverlays && "opacity-0 -translate-x-8 pointer-events-none"
+        (!showOverlays || isTracing) && "opacity-0 -translate-x-8 pointer-events-none"
       )}>
         <div className="bg-white/90 backdrop-blur-md border border-stone-300/50 rounded-xl md:rounded-lg shadow-xl pointer-events-auto flex flex-col overflow-hidden max-h-full">
           <div className="p-3 border-b border-stone-200 bg-stone-100/50">
@@ -454,7 +582,7 @@ export default function MapWorkspace({
         "absolute pointer-events-none z-20 flex flex-col gap-4 transition-all duration-300",
         "bottom-0 left-0 right-0 p-2 md:p-0 md:bottom-4 md:top-28 md:left-auto md:right-4 md:w-72 xl:w-80",
         isLayersTabMobile ? "opacity-0 md:opacity-100 translate-y-10 md:translate-y-0 pointer-events-none" : "opacity-100 translate-y-0",
-        !showOverlays && "opacity-0 translate-x-8 pointer-events-none"
+        (!showOverlays || isTracing) && "opacity-0 translate-x-8 pointer-events-none"
       )}>
         
         {selectedConflict && (
@@ -507,7 +635,21 @@ export default function MapWorkspace({
                    <button onClick={() => resolveConflict(selectedConflict.id, 'resolved')} className="flex-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-500/20 py-2 rounded text-[10px] lg:text-xs font-bold transition-colors flex justify-center items-center gap-2">
                      <Check className="w-3 h-3 lg:w-4 lg:h-4"/> ACCEPT
                    </button>
-                   <button className="flex-1 bg-stone-100 text-stone-800 hover:bg-stone-200 border border-stone-300 py-2 rounded text-[10px] lg:text-xs font-bold transition-colors flex justify-center items-center gap-2">
+                   <button 
+                     onClick={() => {
+                       const featureId = selectedConflict.affectedFeatureIds[0];
+                       const feature = features.find(f => f.id === featureId);
+                       if (feature) {
+                         setEditingFeatureId(feature.id);
+                         setDrawType(feature.type);
+                         if (feature.geometry.type === 'Polygon') {
+                           setTracingPoints(feature.geometry.coordinates[0] as [number, number][]);
+                         }
+                         setIsTracing(true);
+                         setSelectedConflict(null);
+                       }
+                     }}
+                     className="flex-1 bg-stone-100 text-stone-800 hover:bg-stone-200 border border-stone-300 py-2 rounded text-[10px] lg:text-xs font-bold transition-colors flex justify-center items-center gap-2">
                      EDIT
                    </button>
                 </div>
@@ -564,7 +706,17 @@ export default function MapWorkspace({
                 </div>
                 
                 <div className="pt-3 lg:pt-4 border-t border-stone-200 flex gap-2">
-                   <button className="flex-1 bg-stone-100 text-stone-800 hover:bg-stone-200 border border-stone-300 py-2 rounded text-[10px] lg:text-xs font-bold transition-colors flex justify-center items-center gap-2">
+                   <button 
+                     onClick={() => {
+                       setEditingFeatureId(selectedFeature.id);
+                       setDrawType(selectedFeature.type);
+                       if (selectedFeature.geometry.type === 'Polygon') {
+                         setTracingPoints(selectedFeature.geometry.coordinates[0] as [number, number][]);
+                       }
+                       setIsTracing(true);
+                       setSelectedFeature(null);
+                     }}
+                     className="flex-1 bg-stone-100 text-stone-800 hover:bg-stone-200 border border-stone-300 py-2 rounded text-[10px] lg:text-xs font-bold transition-colors flex justify-center items-center gap-2">
                      EDIT GEOMETRY
                    </button>
                 </div>

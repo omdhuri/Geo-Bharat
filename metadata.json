@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "GeoBharat AI",
+  "description": "A GIS platform for spatial data analysis, feature tracing, and conflict detection.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

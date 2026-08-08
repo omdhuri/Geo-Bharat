@@ -57,7 +57,7 @@ export default function ReviewQueue({
         </div>
         
         {/* Table Body */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 md:p-2 space-y-2 md:space-y-1">
+        <div className="flex-1 overflow-y-auto p-2 md:p-2 space-y-2 md:space-y-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {filteredConflicts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-stone-600 py-12">
               <ShieldAlert className="w-10 h-10 md:w-12 md:h-12 mb-4 opacity-20" />
@@ -109,7 +109,7 @@ export default function ReviewQueue({
                   </span>
                 </div>
                 
-                <div className="md:col-span-3 flex justify-between md:justify-end gap-2 w-full md:w-auto mt-2 md:mt-0 pt-3 md:pt-0 border-t border-stone-200 md:border-t-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                <div className="md:col-span-3 flex justify-between md:justify-end gap-2 w-full md:w-auto mt-2 md:mt-0 pt-3 md:pt-0 border-t border-stone-200 md:border-t-0 transition-opacity">
                   <button 
                     onClick={() => onNavigateToConflict(conflict)}
                     className="p-2 md:p-1.5 text-emerald-600 hover:bg-emerald-100 rounded transition-colors flex items-center gap-2"

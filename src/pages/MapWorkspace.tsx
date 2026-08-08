@@ -176,18 +176,19 @@ export default function MapWorkspace({
 
       {/* Floating Header */}
       <div className={cn(
-        "absolute top-2 md:top-4 left-2 right-2 md:left-4 md:right-4 z-10 flex justify-between items-start pointer-events-none gap-2 transition-all duration-300",
+        "absolute inset-0 pointer-events-none z-10 transition-all duration-300",
         isLayersTabMobile ? "opacity-0 md:opacity-100" : "opacity-100"
       )}>
         
         {/* Project Context */}
         <div className={cn(
-          "bg-white/80 backdrop-blur-md border border-stone-300/50 rounded-lg p-2 md:p-3 shadow-lg flex items-center gap-3 md:gap-6 max-w-[70%] md:max-w-none transition-all duration-300",
+          "absolute top-2 left-2 md:top-4 md:left-4",
+          "bg-white/80 backdrop-blur-md border border-stone-300/50 rounded-lg p-2 md:p-3 shadow-lg flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 md:gap-6 transition-all duration-300 lg:w-auto max-w-[calc(100vw-110px)] md:max-w-[75vw]",
           (!showOverlays || isLayersTabMobile) ? "pointer-events-none md:pointer-events-auto" : "pointer-events-auto",
           !showOverlays && "opacity-0 -translate-y-4"
         )}>
           <div className="hidden sm:block">
-            <h2 className="text-sm font-semibold text-stone-900">Satara District — Pilot Survey</h2>
+            <h2 className="text-sm font-semibold text-stone-900 whitespace-nowrap">Satara District — Pilot Survey</h2>
             <div className="text-xs text-stone-600 mt-0.5 flex items-center gap-2">
               <span>Mar 2026 Imagery</span>
               <span className="w-1 h-1 rounded-full bg-stone-300" />
@@ -212,29 +213,29 @@ export default function MapWorkspace({
           
           <div className="h-8 w-px bg-stone-200/50 hidden sm:block" />
           
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-1.5 sm:gap-2 min-w-[120px]">
             <button 
               onClick={handleRunAnalysis}
               disabled={isAnalyzing}
-              className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-stone-200 text-white disabled:text-stone-600 text-[10px] md:text-xs font-bold px-2 py-1.5 md:px-4 md:py-2 rounded shadow transition-colors flex items-center gap-1 md:gap-2"
+              className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-stone-200 text-white disabled:text-stone-600 text-[10px] md:text-xs font-bold px-2 py-1.5 md:px-4 md:py-2 rounded shadow transition-all active:scale-95 flex items-center justify-center gap-1 md:gap-2 shrink-0 w-full"
             >
-              {isAnalyzing ? <Loader2 className="w-3 h-3 md:w-4 md:h-4 animate-spin" /> : <Play className="w-3 h-3 md:w-4 md:h-4 fill-current" />}
+              {isAnalyzing ? <Loader2 className="w-3 h-3 md:w-4 md:h-4 animate-spin shrink-0" /> : <Play className="w-3 h-3 md:w-4 md:h-4 fill-current shrink-0" />}
               <span className="hidden sm:inline">{isAnalyzing ? 'PROCESSING...' : 'RUN AI ANALYSIS'}</span>
               <span className="sm:hidden">{isAnalyzing ? 'WAIT' : 'RUN'}</span>
             </button>
             {stats && (
                <button 
                  onClick={() => setShowExport(true)}
-                 className="bg-stone-100 hover:bg-stone-200 border border-stone-400 text-stone-900 text-[10px] md:text-xs font-bold px-2 py-1.5 md:px-4 md:py-2 rounded shadow transition-colors flex items-center gap-1 md:gap-2"
+                 className="bg-stone-100 hover:bg-stone-200 border border-stone-400 text-stone-900 text-[10px] md:text-xs font-bold px-2 py-1.5 md:px-4 md:py-2 rounded shadow transition-colors flex items-center justify-center gap-1 md:gap-2 w-full"
                >
-                 <Download className="w-3 h-3 md:w-4 md:h-4" /> <span className="hidden sm:inline">EXPORT</span>
+                 <Download className="w-3 h-3 md:w-4 md:h-4 shrink-0" /> <span className="hidden sm:inline">EXPORT</span>
                </button>
             )}
           </div>
         </div>
 
         {/* Right side controls */}
-        <div className="flex items-start gap-1 md:gap-2 shrink-0">
+        <div className="absolute top-2 right-2 md:top-4 md:right-4 flex items-start gap-1 md:gap-2 shrink-0">
           <div className={cn(
             "flex gap-1 md:gap-2 transition-all duration-300",
             (!showOverlays || isLayersTabMobile) ? "pointer-events-none md:pointer-events-auto" : "pointer-events-auto",
@@ -252,39 +253,15 @@ export default function MapWorkspace({
                 }
               }}
               className={cn(
-                "h-10 md:h-12 px-2 md:px-4 rounded-lg shadow-lg text-[10px] md:text-xs font-bold tracking-wider transition-all flex items-center justify-center gap-1.5 md:gap-2",
+                "w-10 h-10 md:w-12 md:h-12 rounded-lg shadow-lg transition-all flex items-center justify-center shrink-0",
                 isTracing 
-                  ? "bg-rose-500 hover:bg-rose-600 text-white" 
+                  ? "bg-rose-500 hover:bg-rose-600 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]" 
                   : "bg-white/80 backdrop-blur-md border border-stone-300/50 text-stone-800 hover:text-stone-900"
               )}
+              title={isTracing ? 'Cancel Tracing' : 'Trace Feature'}
             >
-              {isTracing ? <X className="w-3 h-3 md:w-4 md:h-4" /> : <PenTool className="w-3 h-3 md:w-4 md:h-4" />}
-              <span className="hidden sm:inline">{isTracing ? 'CANCEL TRACING' : 'TRACE FEATURE'}</span>
+              {isTracing ? <X className="w-4 h-4 md:w-5 md:h-5" /> : <PenTool className="w-4 h-4 md:w-5 md:h-5" />}
             </button>
-
-            {/* Global Stats (if analyzed) */}
-            {stats && (
-              <>
-                <div className="bg-white/80 backdrop-blur-md border border-stone-300/50 rounded-lg px-2 py-1 md:px-3 md:py-2 shadow-lg flex items-center gap-1.5 md:gap-3 h-10 md:h-12">
-                  <div className="flex items-center gap-1.5 md:gap-2">
-                     <span className="text-[8px] md:text-[10px] whitespace-nowrap uppercase tracking-wider text-stone-600 font-semibold">Reviews</span>
-                     <div className="flex items-center gap-1 text-rose-700">
-                       <ShieldAlert className="w-3 h-3 md:w-4 md:h-4 shrink-0" />
-                       <span className="text-xs md:text-sm font-bold leading-none">{stats.pendingReviews}</span>
-                     </div>
-                  </div>
-                  <button onClick={onOpenReview} className="hidden sm:block text-[9px] md:text-[10px] text-emerald-600 hover:text-emerald-300 font-medium whitespace-nowrap border-l border-stone-300 pl-2 md:pl-3">Open Queue →</button>
-                </div>
-                
-                <div className="bg-white/80 backdrop-blur-md border border-stone-300/50 rounded-lg px-2 py-1 md:px-3 md:py-2 shadow-lg items-center gap-1.5 md:gap-2 hidden lg:flex h-10 md:h-12">
-                   <span className="text-[8px] md:text-[10px] whitespace-nowrap uppercase tracking-wider text-stone-600 font-semibold">Extracted</span>
-                   <div className="flex items-center gap-1 text-emerald-700">
-                     <Layers className="w-3 h-3 md:w-4 md:h-4 shrink-0" />
-                     <span className="text-xs md:text-sm font-bold leading-none">{stats.totalFeatures}</span>
-                   </div>
-                </div>
-              </>
-            )}
           </div>
 
           <button
@@ -300,6 +277,32 @@ export default function MapWorkspace({
           </button>
         </div>
       </div>
+
+      
+      {/* Bottom Right Stats */}
+      {stats && showOverlays && !isLayersTabMobile && !selectedFeature && !selectedConflict && (
+        <div className="absolute bottom-4 right-4 md:bottom-6 md:right-6 z-10 flex flex-col gap-2 pointer-events-auto">
+          <div className="bg-white/80 backdrop-blur-md border border-stone-300/50 rounded-lg px-2 py-1 md:px-3 md:py-2 shadow-lg flex items-center justify-between gap-1.5 md:gap-3 h-10 md:h-12">
+            <div className="flex items-center gap-1.5 md:gap-2">
+               <span className="text-[8px] md:text-[10px] whitespace-nowrap uppercase tracking-wider text-stone-600 font-semibold">Reviews</span>
+               <div className="flex items-center gap-1 text-rose-700">
+                 <ShieldAlert className="w-3 h-3 md:w-4 md:h-4 shrink-0" />
+                 <span className="text-xs md:text-sm font-bold leading-none">{stats.pendingReviews}</span>
+               </div>
+            </div>
+            <button onClick={onOpenReview} className="text-[9px] md:text-[10px] text-emerald-600 hover:text-emerald-300 font-medium whitespace-nowrap border-l border-stone-300 pl-2 md:pl-3">Open Queue →</button>
+          </div>
+          
+          <div className="bg-white/80 backdrop-blur-md border border-stone-300/50 rounded-lg px-2 py-1 md:px-3 md:py-2 shadow-lg flex items-center justify-between gap-1.5 md:gap-2 h-10 md:h-12">
+             <span className="text-[8px] md:text-[10px] whitespace-nowrap uppercase tracking-wider text-stone-600 font-semibold">Extracted</span>
+             <div className="flex items-center gap-1 text-emerald-700">
+               <Layers className="w-3 h-3 md:w-4 md:h-4 shrink-0" />
+               <span className="text-xs md:text-sm font-bold leading-none">{stats.totalFeatures}</span>
+             </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Export Modal */}
       {showExport && (

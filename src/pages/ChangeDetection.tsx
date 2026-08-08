@@ -92,7 +92,7 @@ export default function ChangeDetection({
       {/* Main Workspace: Before/After Slider */}
       <div className="flex-1 relative flex flex-col h-2/3 md:h-full">
          {/* Top Controls */}
-         <div className="absolute top-2 md:top-4 left-2 right-2 md:left-4 md:right-4 z-20 flex justify-center pointer-events-none">
+         <div className="absolute top-2 md:top-4 left-2 right-2 md:left-4 md:right-4 z-50 flex justify-center pointer-events-none">
             <div className="bg-white/90 backdrop-blur-md border border-stone-300/50 rounded-full px-3 md:px-4 py-1.5 md:py-2 shadow-xl pointer-events-auto flex items-center gap-2 md:gap-4 text-xs md:text-sm font-medium">
                <span className="text-stone-600">Mar 2024</span>
                <div className="w-8 md:w-12 h-1 bg-gradient-to-r from-stone-300 to-emerald-600 rounded-full" />
@@ -187,7 +187,7 @@ export default function ChangeDetection({
 
          {/* Bottom Context Panel for Selected Change */}
          {selectedChange && (
-            <div className="absolute bottom-4 left-4 right-4 md:bottom-6 md:left-1/2 md:-translate-x-1/2 z-20">
+            <div className="absolute bottom-4 left-4 right-4 md:bottom-6 md:left-1/2 md:-translate-x-1/2 z-50">
                <div className="bg-white/95 backdrop-blur-md border border-stone-300 shadow-2xl rounded-xl p-3 md:p-4 w-full md:w-[500px] flex gap-4">
                   <div className="flex-1">
                      <h3 className="text-xs md:text-sm font-bold text-stone-900 mb-1">{selectedChange.description}</h3>

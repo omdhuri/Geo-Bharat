@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useMemo, useRef, useState } from 'react';
 import { Layers, Map as MapIcon, ShieldAlert, CheckSquare, Activity, Settings, Bell, Search, Hexagon, User, Plus } from 'lucide-react';
 import { cn } from '../utils';
 
@@ -52,21 +52,38 @@ function MobileNavItem({ icon: Icon, label, active, onClick, badge }: NavItemPro
   );
 }
 
-export default function AppShell({ 
-  children, 
-  activeTab, 
+export default function AppShell({
+  children,
+  activeTab,
   setActiveTab,
   pendingReviewsCount,
   onSearch,
+  searchSuggestions,
   onImportClick
-}: { 
-  children: ReactNode, 
-  activeTab: string, 
+}: {
+  children: ReactNode,
+  activeTab: string,
   setActiveTab: (t: string) => void,
   pendingReviewsCount: number,
   onSearch?: (query: string) => void,
+  searchSuggestions?: { name: string; lat: number; lng: number }[],
   onImportClick?: () => void
 }) {
+  const [searchValue, setSearchValue] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const blurTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const matches = useMemo(() => {
+    const q = searchValue.trim().toLowerCase();
+    if (!q || !searchSuggestions) return [];
+    return searchSuggestions.filter(p => p.name.toLowerCase().includes(q)).slice(0, 6);
+  }, [searchValue, searchSuggestions]);
+
+  const selectPlace = (name: string) => {
+    setSearchValue(name);
+    setShowSuggestions(false);
+    onSearch?.(name);
+  };
   return (
     <div className="flex h-[100dvh] w-full bg-stone-50 text-stone-900 overflow-hidden font-sans flex-col md:flex-row">
       
@@ -103,7 +120,7 @@ export default function AppShell({
       <div className="flex-1 flex flex-col h-full relative overflow-hidden">
         
         {/* Top Navigation Bar */}
-        <header className="h-14 shrink-0 bg-white/90 backdrop-blur border-b border-stone-200 flex items-center px-4 justify-between z-40">
+        <header className="h-14 shrink-0 bg-white/90 backdrop-blur border-b border-stone-200 shadow-sm flex items-center px-4 justify-between z-40">
           <div className="flex items-center gap-2 md:gap-3">
             <h1 className="text-base md:text-lg font-bold tracking-tight text-stone-900 flex items-center gap-1 md:gap-2">
               GeoBharat <span className="text-emerald-600 font-black">AI</span>
@@ -111,28 +128,55 @@ export default function AppShell({
             <div className="hidden md:block h-4 w-px bg-stone-200 mx-2" />
             <span className="hidden md:block text-xs text-stone-600 font-medium tracking-wide uppercase">From Pixels to Property Intelligence</span>
           </div>
-          
+
           <div className="flex items-center gap-4 md:gap-6">
             <div className="relative hidden sm:block">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-600" />
-              <input 
-                type="text" 
-                placeholder="Search map..." 
-                className="bg-stone-100/50 border border-stone-300 rounded-md py-1.5 pl-9 pr-4 text-sm w-48 md:w-64 focus:outline-none focus:border-emerald-600 transition-colors placeholder:text-stone-600"
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-600 z-10" />
+              <input
+                type="text"
+                placeholder="Search map..."
+                value={searchValue}
+                className="bg-stone-100/50 border border-stone-300 rounded-md py-1.5 pl-9 pr-4 text-sm w-48 md:w-64 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15 transition-all placeholder:text-stone-600"
+                onChange={(e) => {
+                  setSearchValue(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => {
+                  // Delay so a click on a suggestion registers before the list unmounts
+                  blurTimeout.current = setTimeout(() => setShowSuggestions(false), 150);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && onSearch) {
-                    onSearch(e.currentTarget.value);
+                    onSearch(matches[0]?.name || e.currentTarget.value);
+                    setShowSuggestions(false);
                   }
+                  if (e.key === 'Escape') setShowSuggestions(false);
                 }}
               />
+              {showSuggestions && matches.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-stone-300 rounded-md shadow-xl overflow-hidden z-50">
+                  {matches.map(m => (
+                    <button
+                      key={m.name}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => selectPlace(m.name)}
+                      className="w-full text-left px-3 py-2 text-sm text-stone-800 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2 transition-colors"
+                    >
+                      <Search className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                      <span className="truncate">{m.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             
             <div className="flex items-center gap-3 md:gap-4">
               <button className="text-stone-600 hover:text-stone-900 transition-colors relative">
                 <Bell className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full"></span>
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
               </button>
-              <div className="w-8 h-8 rounded-full bg-stone-200 border border-stone-400 flex items-center justify-center text-sm font-bold text-stone-900 shadow-sm overflow-hidden">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-stone-100 to-stone-300 border border-stone-400 flex items-center justify-center text-sm font-bold text-stone-900 shadow-sm overflow-hidden ring-2 ring-white">
                 <User className="w-4 h-4 text-stone-800" />
               </div>
             </div>

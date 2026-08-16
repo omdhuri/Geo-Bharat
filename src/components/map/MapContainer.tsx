@@ -28,7 +28,8 @@ const vertexIcon = new L.DivIcon({
   iconAnchor: [0, 0]
 });
 
-const CENTER = [17.6805, 74.0183] as [number, number];
+import osm from '../../data/geobharat-osm.json';
+const CENTER = osm.center as [number, number];
 
 function MapController({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap();
@@ -37,7 +38,6 @@ function MapController({ center, zoom }: { center: [number, number]; zoom: numbe
   }, [center, zoom, map]);
   return null;
 }
-
 
 import { useRef } from 'react';
 function MapEvents({ onMapClick, onMouseMove }: { onMapClick?: (latlng: [number, number]) => void, onMouseMove?: (latlng: [number, number]) => void }) {
@@ -107,21 +107,21 @@ export default function GISMap({
 
   return (
     <div className={`w-full h-full relative bg-white ${isTracing ? "tracing-cursor" : ""}`}>
-      <MapContainer 
-        center={CENTER} 
-        zoom={16} 
+      <MapContainer
+        center={CENTER}
+        zoom={17}
         style={{ width: '100%', height: '100%', background: '#0f172a' }}
         className={isTracing ? 'tracing-cursor' : ''}
         zoomControl={false}
       >
-        <MapController center={mapCenter || CENTER} zoom={16} />
-        <MapEvents 
-          onMapClick={onMapClick} 
+        <MapController center={mapCenter || CENTER} zoom={17} />
+        <MapEvents
+          onMapClick={onMapClick}
           onMouseMove={(latlng) => {
             if (isTracing) setCursorPos(latlng);
-          }} 
+          }}
         />
-        
+
         {/* Esri World Imagery */}
         <TileLayer
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -142,10 +142,10 @@ export default function GISMap({
             key={tree.id}
             center={tree.geometry.coordinates as [number, number]}
             radius={3}
-            pathOptions={{ 
-              color: selectedFeatureId === tree.id ? '#0ea5e9' : '#22c55e', 
-              fillColor: '#22c55e', 
-              fillOpacity: 0.6,
+            pathOptions={{
+              color: selectedFeatureId === tree.id ? '#0ea5e9' : '#15803d',
+              fillColor: '#16a34a',
+              fillOpacity: 0.75,
               weight: selectedFeatureId === tree.id ? 2 : 1
             }}
             eventHandlers={{ click: () => onFeatureSelect(tree) }}
@@ -154,17 +154,26 @@ export default function GISMap({
 
         {/* Water */}
         {visibleLayers.water && water.map(w => (
-          <Polygon
-            key={w.id}
-            positions={w.geometry.coordinates as [number, number][]}
-            pathOptions={{ 
-              color: '#3b82f6', 
-              fillColor: '#3b82f6', 
-              fillOpacity: 0.4,
-              weight: selectedFeatureId === w.id ? 3 : 1
-            }}
-            eventHandlers={{ click: () => onFeatureSelect(w) }}
-          />
+          w.geometry.type === 'LineString' ? (
+            <Polyline
+              key={w.id}
+              positions={w.geometry.coordinates as [number, number][]}
+              pathOptions={{ color: '#3b82f6', weight: selectedFeatureId === w.id ? 5 : 3, opacity: 0.85 }}
+              eventHandlers={{ click: () => onFeatureSelect(w) }}
+            />
+          ) : (
+            <Polygon
+              key={w.id}
+              positions={w.geometry.coordinates as [number, number][]}
+              pathOptions={{
+                color: '#3b82f6',
+                fillColor: '#3b82f6',
+                fillOpacity: 0.4,
+                weight: selectedFeatureId === w.id ? 3 : 1
+              }}
+              eventHandlers={{ click: () => onFeatureSelect(w) }}
+            />
+          )
         ))}
 
         {/* Farms */}
@@ -195,9 +204,9 @@ export default function GISMap({
           <Polygon
             key={building.id}
             positions={building.geometry.coordinates as [number, number][]}
-            pathOptions={{ 
-              color: selectedFeatureId === building.id ? '#38bdf8' : '#06b6d4', 
-              fillColor: '#0891b2', 
+            pathOptions={{
+              color: selectedFeatureId === building.id ? '#38bdf8' : '#06b6d4',
+              fillColor: '#0891b2',
               fillOpacity: 0.5,
               weight: selectedFeatureId === building.id ? 3 : 1
             }}

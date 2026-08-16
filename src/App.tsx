@@ -12,6 +12,7 @@ import ChangeDetection from './pages/ChangeDetection';
 import Settings from './pages/Settings';
 import { GeoFeature, Conflict, Change, ProjectStats } from './types';
 import { runAnalysis } from './services/aiService';
+import osm from './data/geobharat-osm.json';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('map');
@@ -37,18 +38,20 @@ export default function App() {
     });
   }, []);
 
-  const handleSearch = async (query: string) => {
-    if (!query) return;
-    try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
-      const data = await response.json();
-      if (data && data.length > 0) {
-        const { lat, lon, display_name } = data[0];
-        setMapCenter([parseFloat(lat), parseFloat(lon)]);
-        setSearchMarker({ lat: parseFloat(lat), lon: parseFloat(lon), label: display_name });
-      }
-    } catch (error) {
-      console.error('Search failed', error);
+  // Demo-only local search: matches against the real named localities extracted
+  // alongside the pilot survey's building/road data, rather than a live geocoder
+  // (keeps the demo reliable with no external dependency at judging time).
+  const handleSearch = (query: string) => {
+    if (!query.trim()) return;
+    const q = query.trim().toLowerCase();
+    const match =
+      osm.places.find(p => p.name.toLowerCase() === q) ||
+      osm.places.find(p => p.name.toLowerCase().startsWith(q)) ||
+      osm.places.find(p => p.name.toLowerCase().includes(q));
+    if (match) {
+      setMapCenter([match.lat, match.lng]);
+      setSearchMarker({ lat: match.lat, lon: match.lng, label: match.name });
+      setActiveTab('map');
     }
   };
 
@@ -75,6 +78,7 @@ export default function App() {
       setActiveTab={setActiveTab}
       pendingReviewsCount={conflicts.length}
       onSearch={handleSearch}
+      searchSuggestions={osm.places}
       onImportClick={() => setShowImportModal(true)}
     >
       {(activeTab === 'map' || activeTab === 'layers') && (

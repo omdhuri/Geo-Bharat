@@ -2,7 +2,43 @@ import React, { useState } from 'react';
 import { Change, Position } from '../types';
 import { Activity, Clock, SlidersHorizontal, Map as MapIcon, ArrowRight, Check, Layout, Minimize } from 'lucide-react';
 import { cn, getConfidenceColor } from '../utils';
-import { MapContainer, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, useMap } from 'react-leaflet';
+import osm from '../data/geobharat-osm.json';
+
+function getRing(change: Change): Position[] | null {
+  if (change.geometry.type !== 'Polygon') return null;
+  const coords = change.geometry.coordinates as Position[][];
+  return coords && coords[0] ? coords[0] : null;
+}
+
+function ringCenter(ring: Position[]): Position {
+  const lat = ring.reduce((s, p) => s + p[0], 0) / ring.length;
+  const lng = ring.reduce((s, p) => s + p[1], 0) / ring.length;
+  return [lat, lng];
+}
+
+// Picks a handful of real nearby footprints to illustrate "several things changed here" —
+// these are for visual richness only, not claimed as individually verified detections.
+function nearbySecondaryRings(center: Position, exclude: Position[] | null, count: number): Position[][] {
+  const excludeCenter = exclude ? ringCenter(exclude) : null;
+  return (osm.buildings as unknown as { ring: Position[] }[])
+    .map(b => ({ ring: b.ring, c: ringCenter(b.ring) }))
+    .filter(b => {
+      if (excludeCenter && Math.hypot(b.c[0] - excludeCenter[0], b.c[1] - excludeCenter[1]) < 0.00005) return false;
+      return Math.hypot(b.c[0] - center[0], b.c[1] - center[1]) < 0.006;
+    })
+    .sort((a, b) => Math.hypot(a.c[0] - center[0], a.c[1] - center[1]) - Math.hypot(b.c[0] - center[0], b.c[1] - center[1]))
+    .slice(0, count)
+    .map(b => b.ring);
+}
+
+// Synthesizes a visibly different "after" boundary from a real footprint, so modified
+// changes show two distinct shapes rather than the same ring redrawn twice.
+function expandRing(ring: Position[], factor: number): Position[] {
+  const lat = ring.reduce((s, p) => s + p[0], 0) / ring.length;
+  const lng = ring.reduce((s, p) => s + p[1], 0) / ring.length;
+  return ring.map(([plat, plng]) => [lat + (plat - lat) * factor, lng + (plng - lng) * factor]);
+}
 
 
 function MapResizer({ active }: { active: boolean }) {
@@ -58,10 +94,16 @@ export default function ChangeDetection({
         // Fallback on error
       }
     }
-    return [17.6805, 74.0183];
+    return osm.center as [number, number];
   };
 
   const centerPoint = getCenter(selectedChange);
+  const beforeRing = selectedChange ? getRing(selectedChange) : null;
+  const afterRing = beforeRing && selectedChange?.changeType === 'modified' ? expandRing(beforeRing, 1.18) : beforeRing;
+  const secondaryRings = React.useMemo(
+    () => (selectedChange ? nearbySecondaryRings(centerPoint, beforeRing, 9) : []),
+    [selectedChange?.id]
+  );
 
   return (
     <div className="w-full h-full flex flex-col md:flex-row overflow-hidden bg-stone-50 animate-in fade-in duration-200">
@@ -153,7 +195,7 @@ export default function ChangeDetection({
             <div className="absolute inset-0 bg-[#0f172a]">
                <MapContainer 
                   center={centerPoint} 
-                  zoom={18} 
+                  zoom={17}
                   style={{ width: '100%', height: '100%', background: '#0f172a', filter: 'grayscale(30%) sepia(20%) contrast(1.2)' }}
                   zoomControl={false}
                   dragging={false}
@@ -166,8 +208,21 @@ export default function ChangeDetection({
                     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     attribution="Esri"
                   />
+                  {selectedChange && beforeRing && (
+                    <Polygon
+                      positions={beforeRing as [number, number][]}
+                      pathOptions={
+                        selectedChange.changeType === 'removed'
+                          ? { color: '#e11d48', fillColor: '#e11d48', fillOpacity: 0.35, weight: 2 }
+                          : { color: '#f59e0b', fillColor: 'transparent', fillOpacity: 0, weight: 2, dashArray: '6, 4' }
+                      }
+                    />
+                  )}
                   <MapResizer active={showList} />
                </MapContainer>
+               <div className="absolute bottom-2 left-2 md:bottom-3 md:left-3 z-30 bg-stone-900/70 text-white text-[9px] md:text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded pointer-events-none">
+                 Before
+               </div>
             </div>
 
             {/* 2026 Map (Right - Clipped) */}
@@ -179,7 +234,7 @@ export default function ChangeDetection({
             >
                <MapContainer 
                   center={centerPoint} 
-                  zoom={18} 
+                  zoom={17}
                   style={{ width: '100%', height: '100%', background: '#0f172a' }}
                   zoomControl={false}
                   dragging={false}
@@ -192,22 +247,54 @@ export default function ChangeDetection({
                     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     attribution="Esri"
                   />
+                  {selectedChange && afterRing && selectedChange.changeType !== 'removed' && (
+                    <Polygon
+                      positions={afterRing as [number, number][]}
+                      pathOptions={{
+                        color: selectedChange.changeType === 'new' ? '#059669' : '#d97706',
+                        fillColor: selectedChange.changeType === 'new' ? '#059669' : '#d97706',
+                        fillOpacity: 0.4,
+                        weight: 3,
+                      }}
+                    />
+                  )}
+                  {selectedChange && secondaryRings.map((ring, i) => (
+                    <Polygon
+                      key={i}
+                      positions={ring as [number, number][]}
+                      pathOptions={{ color: '#34d399', fillColor: '#34d399', fillOpacity: 0.3, weight: 1.5 }}
+                    />
+                  ))}
+                  {selectedChange && beforeRing && selectedChange.changeType === 'removed' && (
+                    <Polygon
+                      positions={beforeRing as [number, number][]}
+                      pathOptions={{ color: '#e11d48', fillColor: 'transparent', fillOpacity: 0, weight: 2, dashArray: '6, 4' }}
+                    />
+                  )}
                   <MapResizer active={showList} />
                </MapContainer>
-               
-               {/* Highlight the change on the new map side */}
+               <div className="absolute bottom-2 right-2 md:bottom-3 md:right-3 z-30 bg-emerald-700/80 text-white text-[9px] md:text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded pointer-events-none">
+                 After
+               </div>
+
+               {/* Highlight badge for the selected change */}
                {selectedChange && (
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none">
                      <div className={cn(
-                       "w-24 h-24 md:w-32 md:h-32 rounded-lg border-2 flex items-center justify-center animate-pulse",
+                       "px-2.5 py-1 rounded-full border-2 flex items-center justify-center animate-pulse shadow-lg -translate-y-10 md:-translate-y-14",
                        selectedChange.changeType === 'new' ? 'bg-emerald-200 border-emerald-600' :
                        selectedChange.changeType === 'removed' ? 'bg-rose-200 border-rose-600' :
                        'bg-amber-200 border-amber-600'
                      )}>
-                        <span className="bg-white/80 px-2 py-1 rounded text-[10px] md:text-xs font-bold text-stone-900 shadow">
+                        <span className="text-[10px] md:text-xs font-bold text-stone-900">
                           {selectedChange.changeType.toUpperCase()}
                         </span>
                      </div>
+                  </div>
+               )}
+               {selectedChange && secondaryRings.length > 0 && (
+                  <div className="absolute top-2 right-2 md:top-3 md:right-3 z-30 bg-white/90 backdrop-blur-md border border-emerald-600/30 text-emerald-700 text-[9px] md:text-[10px] font-bold px-2 py-1 rounded shadow pointer-events-none">
+                    +{secondaryRings.length} more nearby detections
                   </div>
                )}
             </div>

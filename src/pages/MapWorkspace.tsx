@@ -4,6 +4,7 @@ import { runAnalysis } from '../services/aiService';
 import { GeoFeature, Conflict, Change, ProjectStats, Position } from '../types';
 import { Layers, Play, CheckCircle2, AlertTriangle, Eye, EyeOff, Loader2, Maximize, Minimize, Check, X, ShieldAlert, ChevronRight, Activity, Download, Layout, PenTool, Undo } from 'lucide-react';
 import { cn, formatArea, getConfidenceColor } from '../utils';
+import osm from '../data/geobharat-osm.json';
 
 export default function MapWorkspace({
   features,
@@ -125,7 +126,7 @@ export default function MapWorkspace({
 
   const [selectedFeature, setSelectedFeature] = useState<GeoFeature | null>(null);
   const [selectedConflict, setSelectedConflict] = useState<Conflict | null>(null);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([17.6805, 74.0183]);
+  const [mapCenter, setMapCenter] = useState<[number, number]>(osm.center as [number, number]);
   
   useEffect(() => {
     if (initialMapCenter) {
@@ -289,7 +290,7 @@ export default function MapWorkspace({
             <button 
               onClick={handleRunAnalysis}
               disabled={isAnalyzing}
-              className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-stone-200 text-white disabled:text-stone-600 text-[10px] md:text-xs font-bold px-2 py-1.5 md:px-4 md:py-2 rounded shadow transition-all active:scale-95 flex items-center justify-center gap-1 md:gap-2 shrink-0 w-full"
+              className="bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:from-stone-200 disabled:to-stone-200 text-white disabled:text-stone-600 text-[10px] md:text-xs font-bold px-2 py-1.5 md:px-4 md:py-2 rounded-md shadow-md shadow-emerald-600/20 transition-all active:scale-95 flex items-center justify-center gap-1 md:gap-2 shrink-0 w-full"
             >
               {isAnalyzing ? <Loader2 className="w-3 h-3 md:w-4 md:h-4 animate-spin shrink-0" /> : <Play className="w-3 h-3 md:w-4 md:h-4 fill-current shrink-0" />}
               <span className="hidden sm:inline">{isAnalyzing ? 'PROCESSING...' : 'RUN AI ANALYSIS'}</span>
@@ -377,6 +378,26 @@ export default function MapWorkspace({
         </div>
       )}
 
+      {/* Map Legend */}
+      {showOverlays && !isLayersTabMobile && !selectedFeature && !selectedConflict && !isTracing && (
+        <div className="absolute bottom-4 left-4 md:bottom-6 md:left-6 z-10 pointer-events-auto hidden sm:block">
+          <div className="bg-white/80 backdrop-blur-md border border-stone-300/50 rounded-lg px-3 py-2 shadow-lg flex items-center gap-3 flex-wrap max-w-xs">
+            {[
+              { label: 'Buildings', color: '#0891b2' },
+              { label: 'Plot boundary', color: '#22c55e' },
+              { label: 'Trees', color: '#16a34a' },
+              { label: 'Water', color: '#3b82f6' },
+              { label: 'Roads', color: '#94a3b8' },
+              { label: 'Conflict', color: '#ef4444' },
+            ].map(item => (
+              <div key={item.label} className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                <span className="text-[10px] text-stone-700 font-medium whitespace-nowrap">{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Export Modal */}
       {showExport && (
@@ -565,10 +586,10 @@ export default function MapWorkspace({
           <div className="overflow-y-auto p-2 space-y-1 custom-scrollbar">
             <LayerToggle label="Map Labels" color="bg-stone-500" active={visibleLayers.labels} onToggle={() => toggleLayer('labels')} />
             <LayerToggle label="Farm Boundaries" color="bg-green-500" count={features.filter(f=>f.type==='farm').length} active={visibleLayers.farms} onToggle={() => toggleLayer('farms')} />
-            <LayerToggle label="Buildings" color="bg-emerald-600" count={features.filter(f=>f.type==='building').length} active={visibleLayers.buildings} onToggle={() => toggleLayer('buildings')} />
+            <LayerToggle label="Buildings" color="bg-cyan-600" count={features.filter(f=>f.type==='building').length} active={visibleLayers.buildings} onToggle={() => toggleLayer('buildings')} />
             <LayerToggle label="Road Networks" color="bg-stone-300" count={features.filter(f=>f.type==='road').length} active={visibleLayers.roads} onToggle={() => toggleLayer('roads')} />
-            <LayerToggle label="Trees" color="bg-emerald-400" count={features.filter(f=>f.type==='tree').length} active={visibleLayers.trees} onToggle={() => toggleLayer('trees')} />
-            <LayerToggle label="Water Bodies" color="bg-emerald-500" count={features.filter(f=>f.type==='water').length} active={visibleLayers.water} onToggle={() => toggleLayer('water')} />
+            <LayerToggle label="Trees" color="bg-green-700" count={features.filter(f=>f.type==='tree').length} active={visibleLayers.trees} onToggle={() => toggleLayer('trees')} />
+            <LayerToggle label="Water Bodies" color="bg-blue-500" count={features.filter(f=>f.type==='water').length} active={visibleLayers.water} onToggle={() => toggleLayer('water')} />
             
             <div className="my-2 h-px bg-stone-100" />
             
